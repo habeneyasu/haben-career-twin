@@ -1,0 +1,5 @@
+openai
+python-dotenv
+chromadb
+requests
+beautifulsoup4

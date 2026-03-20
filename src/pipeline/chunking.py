@@ -1,6 +1,14 @@
+import os
 from typing import Dict, Iterable, List, Optional
 
 from src.pipeline.dynamic_chunker import choose_dynamic_chunk_params
+
+
+def _safe_int_env(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
 
 
 def _find_backward_whitespace(text: str, start: int, end: int) -> int:
@@ -21,6 +29,37 @@ def _find_backward_whitespace(text: str, start: int, end: int) -> int:
     return end
 
 
+def _find_backward_natural_boundary(text: str, start: int, end: int) -> int:
+    """
+    Prefer splitting at natural boundaries near the target end:
+    paragraph -> sentence -> whitespace.
+    """
+    if end <= start:
+        return end
+
+    # Avoid tiny chunks by only searching boundaries in the latter window.
+    window_start = max(start, end - 220)
+    segment = text[window_start:end]
+
+    # 1) Paragraph boundary
+    para_idx = segment.rfind("\n\n")
+    if para_idx != -1:
+        return window_start + para_idx + 2
+
+    # 2) Sentence boundary
+    sentence_markers = [". ", "! ", "? ", ".\n", "!\n", "?\n"]
+    candidate = -1
+    for marker in sentence_markers:
+        pos = segment.rfind(marker)
+        if pos > candidate:
+            candidate = pos
+    if candidate != -1:
+        return window_start + candidate + 1
+
+    # 3) Fallback: any whitespace
+    return _find_backward_whitespace(text, start, end)
+
+
 def chunk_text(content: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
     """
     Character-based chunking with overlap and soft word boundaries.
@@ -39,13 +78,17 @@ def chunk_text(content: str, chunk_size: int = 1000, overlap: int = 200) -> List
     n = len(content)
     while start < n:
         raw_end = min(start + chunk_size, n)
-        end = _find_backward_whitespace(content, start, raw_end)
+        end = _find_backward_natural_boundary(content, start, raw_end)
         if end <= start:  # fallback if no whitespace found
             end = raw_end
         chunks.append(content[start:end])
         if end >= n:
             break
-        start = max(0, end - overlap)
+        # Ensure forward progress even when overlap is large or split is tiny.
+        next_start = max(0, end - overlap)
+        if next_start <= start:
+            next_start = end
+        start = next_start
     return chunks
 
 
@@ -71,13 +114,24 @@ def chunk_documents(
       - chunk_size
       - total_chunks
     """
+    max_doc_chars = _safe_int_env("MAX_DOC_CHARS", 50000)
+    if max_doc_chars < 0:
+        max_doc_chars = 50000
+    short_doc_threshold = _safe_int_env("SHORT_DOC_NO_CHUNK_THRESHOLD", 800)
     all_chunks: List[Dict[str, str]] = []
     for doc in documents:
         base_id = doc.get("document_id", "")
-        content = doc.get("content", "") or ""
+        raw_content = doc.get("content", "") or ""
+        # Hard memory guard: cap per-document content before chunking.
+        content = raw_content[:max_doc_chars] if max_doc_chars > 0 else raw_content
         source_path = doc.get("source_path", "") or ""
 
-        if dynamic:
+        # For short docs, force single chunk to reduce retrieval noise.
+        if len(content) <= short_doc_threshold:
+            selected_chunk_size = max(1, len(content))
+            selected_overlap = 0
+            parts = [content] if content else []
+        elif dynamic:
             # Dynamic behavior is delegated to `dynamic_chunker.py`.
             selected_chunk_size, selected_overlap = choose_dynamic_chunk_params(
                 content=content,
@@ -88,15 +142,20 @@ def chunk_documents(
                 selected_chunk_size = chunk_size
             if overlap is not None:
                 selected_overlap = overlap
+            parts = chunk_text(
+                content,
+                chunk_size=selected_chunk_size,
+                overlap=selected_overlap,
+            )
         else:
             selected_chunk_size = chunk_size if chunk_size is not None else 1000
             selected_overlap = overlap if overlap is not None else 200
 
-        parts = chunk_text(
-            content,
-            chunk_size=selected_chunk_size,
-            overlap=selected_overlap,
-        )
+            parts = chunk_text(
+                content,
+                chunk_size=selected_chunk_size,
+                overlap=selected_overlap,
+            )
         total = len(parts)
         for idx, part in enumerate(parts):
             all_chunks.append(

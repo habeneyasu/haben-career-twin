@@ -1,14 +1,7 @@
-import os
 from typing import Dict, Iterable, List, Optional
 
 from src.pipeline.dynamic_chunker import choose_dynamic_chunk_params
-
-
-def _safe_int_env(name: str, default: int) -> int:
-    try:
-        return int(os.getenv(name, str(default)))
-    except ValueError:
-        return default
+from src.utils import safe_int_env
 
 
 def _find_backward_whitespace(text: str, start: int, end: int) -> int:
@@ -114,10 +107,8 @@ def chunk_documents(
       - chunk_size
       - total_chunks
     """
-    max_doc_chars = _safe_int_env("MAX_DOC_CHARS", 50000)
-    if max_doc_chars < 0:
-        max_doc_chars = 50000
-    short_doc_threshold = _safe_int_env("SHORT_DOC_NO_CHUNK_THRESHOLD", 800)
+    max_doc_chars = safe_int_env("MAX_DOC_CHARS", 50000, minimum=0)
+    short_doc_threshold = safe_int_env("SHORT_DOC_NO_CHUNK_THRESHOLD", 800)
     all_chunks: List[Dict[str, str]] = []
     for doc in documents:
         base_id = doc.get("document_id", "")

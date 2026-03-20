@@ -6,16 +6,10 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
+from src.utils import safe_int_env
+
 load_dotenv()
 _HTTP_SESSION = requests.Session()
-
-
-def _get_int_env(name: str, default: int, minimum: int = 1) -> int:
-    try:
-        value = int(os.getenv(name, str(default)))
-    except ValueError:
-        value = default
-    return max(minimum, value)
 
 
 class CareerTools:
@@ -23,8 +17,8 @@ class CareerTools:
 
     @staticmethod
     def get_github_live() -> List[dict]:
-        timeout_seconds = _get_int_env("HTTP_TIMEOUT_SECONDS", 20)
-        repo_limit = _get_int_env("GITHUB_REPO_LIMIT", 5)
+        timeout_seconds = safe_int_env("HTTP_TIMEOUT_SECONDS", 20, minimum=1)
+        repo_limit = safe_int_env("GITHUB_REPO_LIMIT", 5, minimum=1)
         profile = os.getenv("GITHUB_PROFILE", "").rstrip("/")
         username = profile.split("/")[-1] if profile else ""
         if not username:
@@ -36,8 +30,8 @@ class CareerTools:
 
     @staticmethod
     def get_portfolio_live() -> str:
-        timeout_seconds = _get_int_env("HTTP_TIMEOUT_SECONDS", 20)
-        max_chars = _get_int_env("PORTFOLIO_MAX_CHARS", 4000)
+        timeout_seconds = safe_int_env("HTTP_TIMEOUT_SECONDS", 20, minimum=1)
+        max_chars = safe_int_env("PORTFOLIO_MAX_CHARS", 4000, minimum=1)
         url = os.getenv("PORTIFOLIO_PROFILE", "").strip()
         if not url:
             return ""
@@ -55,9 +49,9 @@ class CareerTools:
         - section_slug
         - content
         """
-        timeout_seconds = _get_int_env("HTTP_TIMEOUT_SECONDS", 20)
-        max_section_chars = _get_int_env("PORTFOLIO_SECTION_MAX_CHARS", 1200)
-        max_sections = _get_int_env("PORTFOLIO_MAX_SECTIONS", 25)
+        timeout_seconds = safe_int_env("HTTP_TIMEOUT_SECONDS", 20, minimum=1)
+        max_section_chars = safe_int_env("PORTFOLIO_SECTION_MAX_CHARS", 1200, minimum=1)
+        max_sections = safe_int_env("PORTFOLIO_MAX_SECTIONS", 25, minimum=1)
         url = os.getenv("PORTIFOLIO_PROFILE", "").strip()
         if not url:
             return []
@@ -120,8 +114,8 @@ class CareerTools:
     @staticmethod
     def get_linkedin_live() -> str:
         """Fetch lightweight live profile metadata from LinkedIn page."""
-        timeout_seconds = _get_int_env("HTTP_TIMEOUT_SECONDS", 20)
-        max_chars = _get_int_env("LINKEDIN_MAX_CHARS", 2000)
+        timeout_seconds = safe_int_env("HTTP_TIMEOUT_SECONDS", 20, minimum=1)
+        max_chars = safe_int_env("LINKEDIN_MAX_CHARS", 2000, minimum=1)
         url = os.getenv("LINKEDIN_PROFILE", "").strip()
         if not url:
             return ""

@@ -1,6 +1,11 @@
 import hashlib
+import os
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def _is_live_source(source_path: str) -> bool:
@@ -15,7 +20,7 @@ def _sha256(text: str) -> str:
 
 def build_document_metadata(
     document: Dict[str, str],
-    default_ttl_seconds: int = 3600,
+    default_ttl_seconds: int = 0,
     source_kind: Optional[str] = None,
 ) -> Dict[str, str]:
     """
@@ -25,6 +30,7 @@ def build_document_metadata(
     content = document.get("content", "") or ""
     source_path = document.get("source_path", "") or ""
     live = _is_live_source(source_path)
+    resolved_ttl = default_ttl_seconds or int(os.getenv("INGEST_CACHE_TTL_SECONDS", "3600"))
 
     resolved_source_kind = source_kind or ("live" if live else "local")
 
@@ -36,13 +42,13 @@ def build_document_metadata(
         "fetched_at": datetime.now(timezone.utc).isoformat(),
         "content_length": str(len(content)),
         "content_sha256": _sha256(content),
-        "default_ttl_seconds": str(int(default_ttl_seconds)),
+        "default_ttl_seconds": str(int(resolved_ttl)),
     }
 
 
 def build_all_metadata(
     documents: List[Dict[str, str]],
-    default_ttl_seconds: int = 3600,
+    default_ttl_seconds: int = 0,
 ) -> List[Dict[str, str]]:
     """
     Convenience helper to create metadata objects for a list of documents.

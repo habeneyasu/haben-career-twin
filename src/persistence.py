@@ -3,8 +3,12 @@ import sqlite3
 import time
 from typing import Optional
 
+from dotenv import load_dotenv
 
-DEFAULT_DB_PATH = "database/cache.db"
+load_dotenv()
+
+DEFAULT_DB_PATH = os.getenv("CACHE_DB_PATH", "database/cache.db")
+DEFAULT_CACHE_TTL_SECONDS = int(os.getenv("INGEST_CACHE_TTL_SECONDS", "3600"))
 
 
 def _get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -24,7 +28,7 @@ def _get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
 
 def get_cached_doc(
     doc_id: str,
-    max_age_seconds: int = 3600,
+    max_age_seconds: int = DEFAULT_CACHE_TTL_SECONDS,
     db_path: str = DEFAULT_DB_PATH,
 ) -> Optional[str]:
     """Return cached content when fresh enough, else None."""

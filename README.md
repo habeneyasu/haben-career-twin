@@ -1,69 +1,30 @@
-# Haben's Career Digital Twin (H-CDT) - Project Architecture
+# H-CDT Architecture
 
-## Architecture Goal
+Minimal Phase-1 architecture for a career digital twin.
 
-H-CDT is structured as a modular digital twin for career representation, with clear boundaries between orchestration, live data tools, evaluator, and data pipeline stages.
+## Implementation Status
 
-## High-Level Architecture
+- Implemented: `tools`, `ingestion`, `metadata`, `chunking`, `dynamic_chunker`, `persistence/cache`
+- Placeholder: `embedding`, `vector_store`, `supervisor`, `router`, `evaluator`
 
-```text
-User
-  -> Supervisor (routing/orchestration)
-      -> Router (intent direction)
-          -> Tools (live profile data access)
-          -> Pipeline (knowledge-base preparation)
-          -> Evaluator (secondary quality check)
-```
+## Flow
 
-## Core Modules
+`User -> supervisor -> router -> tools + pipeline -> evaluator`
 
-### `src/supervisor.py`
-- Architecture entry point for orchestration flow
-- Coordinates interaction between routing, tools, and evaluation layers
+## Modules
 
-### `src/router.py`
-- Intent routing boundary
-- Decides which internal component should handle a given query
+- `src/tools.py`: live sources (GitHub, Portfolio, LinkedIn)
+- `src/pipeline/ingestion.py`: implemented live/local ingestion with SQLite cache (`src/persistence.py`)
+- `src/pipeline/metadata.py`: implemented metadata enrichment (source, hash, timestamps)
+- `src/pipeline/chunking.py`: chunk execution
+- `src/pipeline/dynamic_chunker.py`: dynamic chunk-size/overlap strategy
+- `src/pipeline/embedding.py`: embeddings layer
+- `src/pipeline/vector_store.py`: ChromaDB boundary
+- `src/supervisor.py`, `src/router.py`, `src/evaluator/evaluator.py`: orchestration placeholders
 
-### `src/tools.py`
-- Live-source integration layer
-- Contains:
-  - `get_github_live()`
-  - `get_portfolio_live()`
-  - `get_linkedin_meta()`
+## Data
 
-### `src/pipeline/`
-- Pipeline stages are separated by responsibility:
-  - `ingestion.py` - document ingestion
-  - `metadata.py` - metadata shaping
-  - `chunking.py` - text chunk strategy
-  - `embedding.py` - embedding generation
-  - `vector_store.py` - vector database write/read boundary
-
-### `src/evaluator/evaluator.py`
-- Secondary LLM evaluation boundary (tone/accuracy review layer)
-
-## Data Architecture
-
-```text
-data/raw/        -> source assets
-data/processed/  -> processed artifacts
-database/chroma_db/ -> vector storage
-```
-
-## Current Repository Structure
-
-```text
-src/
-├── supervisor.py
-├── router.py
-├── tools.py
-├── evaluator/
-│   └── evaluator.py
-└── pipeline/
-    ├── ingestion.py
-    ├── metadata.py
-    ├── chunking.py
-    ├── embedding.py
-    └── vector_store.py
-```
+- `data/raw/`: source assets
+- `data/processed/`: normalized artifacts
+- `database/chroma_db/`: vector store
+- `database/cache.db`: ingestion cache

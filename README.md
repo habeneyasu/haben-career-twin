@@ -1,46 +1,125 @@
-# H-CDT Overview
+# H‑CDT: Haben's Career Digital Twin
 
-Haben’s Career Digital Twin (H‑CDT) is a production‑ready profile agent that turns static résumé data and live signals (LinkedIn, GitHub, Portfolio) into credible, on‑demand answers. Phase 1 focuses on reliable data intake, evidence‑grounded retrieval, and concise responses suitable for stakeholder reviews and hiring workflows.
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
+[![Gradio](https://img.shields.io/badge/Gradio-5.9+-orange.svg)](https://gradio.app/)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-Latest-green.svg)](https://www.trychroma.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Delivery Status (Phase 1)
+An executive‑ready, production‑grade AI agent that turns static résumé data and live professional signals (LinkedIn, GitHub, Portfolio) into credible, on‑demand answers.
 
-- Implemented: live data connectors, data intake and curation, adaptive content preparation, vector index, retrieval, lightweight supervisor and intent routing, and a minimal web interface for evaluation.
-- In progress: evaluator pass (tone/accuracy guardrail) and OpenAI Agents SDK integration for deeper agent state and tool orchestration.
+## Problem
 
-## Interaction Model
+Profiles and portfolios get outdated fast. Recruiters and clients want instant, accurate answers about recent work, skills, and impact—without scheduling a call or hunting across links.
 
-User query → Supervisor (intent routing) → Targeted data access (live + curated) → Retrieval with source evidence → Clear, business‑ready response.
+## Approach
 
-## Functional Components
+Treat the professional profile like a product. Build a resilient Retrieval‑Augmented Generation (RAG) system that fuses the résumé with live GitHub, LinkedIn, and portfolio signals; add a supervisor that routes intent and synthesizes grounded answers.
 
-- Live Sources: LinkedIn, GitHub, and Portfolio connectors with configurable limits and timeouts.
-- Intake & Curation: Ingestion with SQLite caching and normalized metadata across sources.
-- Preparation: Adaptive chunking that optimizes context windows based on content density and source type.
-- Embedding & Index: Embeddings via OpenRouter; persistent vector index backed by ChromaDB.
-- Retrieval & Response: Query‑time search with grounded citations; identity summaries prioritize résumé, then live sources.
-- Supervisor & Routing: Intent detection for links, live GitHub, identity, and general retrieval.
-- Evaluation UI: Minimal Gradio chat interface to test the end‑to‑end path quickly.
+## Solution
 
-Reference implementation lives in:
-- `src/tools.py` (live sources), `src/persistence.py` (cache)
-- `src/pipeline/ingestion.py`, `src/pipeline/metadata.py`
-- `src/pipeline/chunking.py`, `src/pipeline/dynamic_chunker.py`
-- `src/pipeline/embedding.py`, `src/pipeline/vector_store.py`, `src/pipeline/run_pipeline.py`
-- `src/router.py`, `src/supervisor.py`, `src/gradio_app.py`
+H‑CDT unifies multi‑source data into a vector index and serves business‑ready responses with citations. It’s memory‑efficient, cloud‑deployable, and avoids hallucinations via validation and fallbacks.
 
-## Data Footprint
+## Outcomes
 
-- `data/processed/`: normalized résumé and curated artifacts
-- `database/chroma_db/`: vector index (persistent)
-- `database/cache.db`: ingestion cache (TTL‑controlled)
+- 24/7 professional presence with consistent, high‑quality answers
+- Faster stakeholder decisions from credible, source‑cited responses
+- Freshness from live GitHub/LinkedIn/portfolio integration
+- Lead capture with push/email alerts for instant follow‑ups
 
-## Configuration (Env‑Driven)
+## What It Does (In Plain Terms)
 
-Key parameters are fully configurable through environment variables to align with security, performance, and cost objectives:
-- Connectivity and models: `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_EMBEDDING_MODEL`, `EMBEDDING_BATCH_SIZE`
-- Profiles and limits: `GITHUB_PROFILE`, `PORTIFOLIO_PROFILE`, `LINKEDIN_PROFILE`, `GITHUB_REPO_LIMIT`, `HTTP_TIMEOUT_SECONDS`
-- Curation and safety rails: `MAX_LIVE_DOC_CHARS`, `MAX_DOC_CHARS`, `SHORT_DOC_NO_CHUNK_THRESHOLD`
-- Adaptive preparation: `DYNAMIC_CHUNK_*` family (min/max size, overlap ratios, thresholds)
-- Vector index: `CHROMA_DB_PATH`, `CHROMA_COLLECTION`, `VECTOR_UPSERT_BATCH_SIZE`, `VECTOR_QUERY_TOP_K`
-- Runtime stability (low‑resource mode): `RAYON_NUM_THREADS`, `TOKIO_WORKER_THREADS`
-- Observability: `SHOW_CITATIONS_IN_LOG`
+- Answers “Who is Haben?” in 2‑4 executive sentences, grounded in evidence
+- Summarizes recent projects and technical work from live GitHub + portfolio
+- Shares links on request and surfaces the most relevant citations
+- Logs unknown questions and captures contact details for follow‑ups
+
+## Key Capabilities
+
+- Multi‑Source RAG over résumé + GitHub + LinkedIn + portfolio
+- Intent‑aware routing (identity, projects, links, retrieval)
+- Evidence‑grounded answers with citation logging (no hallucinations)
+- Adaptive chunking and memory‑safe, batched processing
+- Real‑time notifications (Pushover/email) for leads and gaps
+- Deployed to Hugging Face Spaces with a clean Gradio UI
+
+## Technical Stack (at a Glance)
+
+| Category | Technology |
+|----------|-----------|
+| Language & Runtime | Python 3.12+ with `uv` |
+| Vector Database | ChromaDB |
+| Caching Layer | SQLite (TTL cache + logs) |
+| AI/ML Services | OpenRouter (embeddings + chat) |
+| Web Framework | Gradio (Hugging Face Spaces) |
+| Data Processing | BeautifulSoup4, requests |
+| Config | python‑dotenv |
+| Architecture | Modular pipeline + supervisor + grounding validation |
+
+## Architecture (How It Works)
+
+```
+Problem/Question
+   ↓
+Supervisor (Intent Router)
+   ↓
+Live + Local Data (GitHub, LinkedIn, Portfolio, résumé)
+   ↓
+RAG Pipeline: Ingest → Metadata → Adaptive Chunking → Embeddings → ChromaDB
+   ↓
+LLM Synthesis (OpenRouter) → Grounding Validation → Clean, cited answer
+```
+
+### Components
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| Supervisor | Orchestrates routing + response | `src/supervisor.py` |
+| Router | Classifies intent | `src/router.py` |
+| Tools | Live data connectors | `src/tools.py` |
+| Pipeline | RAG processing | `src/pipeline/` |
+| Vector Store | ChromaDB ops | `src/pipeline/vector_store.py` |
+| Cache | SQLite TTL cache | `src/persistence.py` |
+| UI | Gradio chat | `src/gradio_app.py` |
+
+## Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/habeneyasu/haben-career-twin.git
+cd haben-career-twin
+uv pip install -r requirements.txt
+
+# Configure
+cp .env.example .env
+# Fill in OPENROUTER_* and profile URLs
+
+# Build index
+python3 - <<'PY'
+from src.pipeline.run_pipeline import build_vector_index
+print(build_vector_index(use_live=True, include_local_processed=True, dynamic_chunking=True))
+PY
+
+# Run app
+python -m src.gradio_app
+```
+
+## Configuration (Essentials)
+
+- `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_EMBEDDING_MODEL`, `OPENROUTER_CHAT_MODEL`
+- `GITHUB_PROFILE`, `PORTIFOLIO_PROFILE`, `LINKEDIN_PROFILE`
+- `CHROMA_DB_PATH`, `CACHE_DB_PATH`, `RAYON_NUM_THREADS`, `TOKIO_WORKER_THREADS`
+
+See `.env.example` for a complete list.
+
+## Troubleshooting
+
+- Empty answers? Rebuild the index and verify OpenRouter keys.
+- Memory issues? Lower batch sizes and set thread limits to 1.
+- Import errors? Run from project root and use `python -m src.gradio_app`.
+
+## License & Contact
+
+- License: MIT (see `LICENSE`)
+- GitHub: [@habeneyasu](https://github.com/habeneyasu)
+- LinkedIn: [habeneyasu](https://www.linkedin.com/in/habeneyasu)
+- Portfolio: [habeneyasu.github.io](https://habeneyasu.github.io/)

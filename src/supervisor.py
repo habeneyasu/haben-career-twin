@@ -1,15 +1,304 @@
 import os
 import re
 import json
+import smtplib
+from datetime import datetime, timezone
+from email.message import EmailMessage
 from typing import Dict, List
 
 from dotenv import load_dotenv
+import requests
+from openai import OpenAI
 
 from src.router import route_intent
 from src.tools import CareerTools
 from src.pipeline.run_pipeline import search_similar_content
 
 load_dotenv()
+_OPENAI_CLIENT = None
+
+
+def _append_jsonl(path: str, payload: Dict[str, object]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, ensure_ascii=True) + "\n")
+
+
+def _send_pushover_notification(title: str, message: str) -> None:
+    """
+    Send real-time notification via Pushover.
+    No-op when not configured.
+    """
+    token = os.getenv("PUSHOVER_API_TOKEN", "").strip()
+    user_key = os.getenv("PUSHOVER_USER_KEY", "").strip()
+    if not token or not user_key:
+        return
+
+    api_url = os.getenv("PUSHOVER_API_URL", "https://api.pushover.net/1/messages.json").strip()
+    timeout_seconds = int(os.getenv("HTTP_TIMEOUT_SECONDS", "20"))
+    payload = {
+        "token": token,
+        "user": user_key,
+        "title": title[:100],
+        "message": message[:1000],
+    }
+    try:
+        requests.post(api_url, data=payload, timeout=timeout_seconds)
+    except Exception:
+        # Keep core assistant flow resilient even if notification fails.
+        pass
+
+
+def _send_email_notification(subject: str, body: str) -> None:
+    """
+    Send standard SMTP email notification.
+    No-op when SMTP env config is incomplete.
+    """
+    host = os.getenv("SMTP_HOST", "").strip()
+    port_raw = os.getenv("SMTP_PORT", "587").strip()
+    username = os.getenv("SMTP_USER", "").strip()
+    password = os.getenv("SMTP_PASS", "").strip()
+    from_addr = os.getenv("EMAIL_FROM", username).strip()
+    to_addr = os.getenv("EMAIL_TO", "").strip()
+    use_tls = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+
+    if not (host and port_raw and from_addr and to_addr):
+        return
+
+    try:
+        port = int(port_raw)
+    except ValueError:
+        return
+
+    msg = EmailMessage()
+    msg["Subject"] = subject[:200]
+    msg["From"] = from_addr
+    msg["To"] = to_addr
+    msg.set_content(body[:5000])
+
+    try:
+        with smtplib.SMTP(host, port, timeout=int(os.getenv("HTTP_TIMEOUT_SECONDS", "20"))) as server:
+            if use_tls:
+                server.starttls()
+            if username and password:
+                server.login(username, password)
+            server.send_message(msg)
+    except Exception:
+        # Keep core assistant flow resilient even if email fails.
+        pass
+
+
+def _get_openai_client() -> OpenAI:
+    global _OPENAI_CLIENT
+    if _OPENAI_CLIENT is not None:
+        return _OPENAI_CLIENT
+    api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError("Missing OPENROUTER_API_KEY in environment")
+    base_url = os.getenv("OPENROUTER_BASE_URL", "").strip()
+    if not base_url:
+        raise ValueError("Missing OPENROUTER_BASE_URL in environment")
+    _OPENAI_CLIENT = OpenAI(api_key=api_key, base_url=base_url)
+    return _OPENAI_CLIENT
+
+
+def _generate_answer_with_openai(query: str, results: List[Dict[str, object]], mode: str = "retrieval") -> str:
+    """
+    Post-RAG answer synthesis with OpenAI.
+    Falls back to template formatting if config or API call is unavailable.
+    """
+    use_llm = os.getenv("USE_OPENAI_AFTER_RAG", "true").lower() == "true"
+    if not use_llm or not results:
+        return ""
+
+    try:
+        client = _get_openai_client()
+    except Exception:
+        return ""
+
+    model = os.getenv("OPENROUTER_CHAT_MODEL", "openai/gpt-4o-mini").strip() or "openai/gpt-4o-mini"
+    max_ctx_items = int(os.getenv("SUPERVISOR_CONTEXT_ITEMS", "5"))
+    ctx_parts: List[str] = []
+    for i, r in enumerate(results[:max_ctx_items], start=1):
+        meta = r.get("metadata") or {}
+        source_name = str(meta.get("source_name") or "")
+        source_path = str(meta.get("source_path") or "")
+        content = " ".join(str(r.get("content") or "").split())[:700]
+        ctx_parts.append(f"[{i}] source={source_name} path={source_path}\n{content}")
+    context_block = "\n\n".join(ctx_parts)
+
+    if mode == "identity":
+        system_prompt = (
+            "You are a professional career profile assistant. "
+            "Write a concise, human, executive-style profile grounded only in supplied evidence. "
+            "Do not invent facts, employers, timelines, or achievements. "
+            "Format requirements for identity responses:\n"
+            "- 2 to 4 sentences total.\n"
+            "- Include role and core specialization.\n"
+            "- Include one concrete proof point (project or impact metric) when available.\n"
+            "- If any critical detail is missing, include one soft uncertainty phrase, e.g. "
+            "'Based on available information...' or 'Publicly available evidence is limited...'."
+        )
+    elif mode == "project_exec":
+        system_prompt = (
+            "You are a professional assistant. Answer using only provided RAG context. "
+            "Be concise, specific, and business-oriented with natural human tone. Do not fabricate. "
+            "For 'recent projects' queries, prioritize the MOST RECENT project information from GitHub repository data. "
+            "If GitHub repo context is present, use it as the primary source for Project name, Business Objective (from repo description/README), "
+            "Core Capabilities (from actual implementation), and Technical Stack (from codebase evidence). "
+            "Only describe capabilities that are currently implemented in this project baseline: "
+            "live data ingestion (LinkedIn/GitHub/Portfolio), metadata enrichment, adaptive chunking, "
+            "OpenRouter embeddings/chat synthesis, ChromaDB retrieval, SQLite cache, supervisor intent routing, "
+            "grounded-response validation, Gradio interface, and lead capture notifications. "
+            "Do NOT include legacy or non-implemented claims such as OpenAI Agents SDK, "
+            "Supervisor/Sub-agent orchestration, or Two-LLM Evaluator loop unless the user explicitly asks for roadmap/future work. "
+            "Always format the response with these exact section headers in order:\n"
+            "Project\n"
+            "Business Objective\n"
+            "Core Capabilities\n"
+            "Technical Stack\n"
+            "Measured/Expected Impact\n"
+            "For Business Objective: Extract from repo description or README if available. If not, write 'Not explicitly stated in available evidence.' "
+            "For Measured/Expected Impact: If no metrics are provided, write 'Not explicitly stated in available evidence.' "
+            "Never infer details that are not present. Always ground answers in the most recent project evidence."
+        )
+    else:
+        system_prompt = (
+            "You are a professional assistant. Answer using only provided RAG context. "
+            "Be concise, specific, and business-oriented with natural human tone. Do not fabricate. "
+            "Provide a direct plain-text answer to the user's question. "
+            "If a fact is not present in evidence, explicitly say it is not available."
+        )
+
+    user_prompt = (
+        f"User query:\n{query}\n\n"
+        f"Retrieved context:\n{context_block}\n\n"
+        "Return a clean plain-text answer."
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.2,
+        )
+        text = (resp.choices[0].message.content or "").strip()
+        if mode == "identity":
+            # Enforce compact enterprise style: max 4 sentences.
+            parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", text) if p.strip()]
+            if len(parts) > 4:
+                text = " ".join(parts[:4]).strip()
+        return text
+    except Exception:
+        return ""
+
+
+def _is_grounded_response(response: str, results: List[Dict[str, object]], mode: str) -> bool:
+    """
+    Lightweight grounding check to reduce hallucination risk.
+    """
+    text = (response or "").strip()
+    if not text:
+        return False
+    if len(text) < 30:
+        return False
+
+    # Project executive mode must keep required structure.
+    if mode == "project_exec":
+        required = [
+            "Project",
+            "Business Objective",
+            "Core Capabilities",
+            "Technical Stack",
+            "Measured/Expected Impact",
+        ]
+        if any(h not in text for h in required):
+            return False
+
+    # Require lexical overlap with retrieved evidence.
+    evidence = " ".join(" ".join(str(r.get("content") or "").split())[:500] for r in results).lower()
+    response_tokens = set(re.findall(r"[a-zA-Z][a-zA-Z0-9_+/.-]{2,}", text.lower()))
+    if not response_tokens:
+        return False
+    overlap = sum(1 for t in response_tokens if t in evidence)
+    if mode == "project_exec":
+        min_overlap = int(os.getenv("SUPERVISOR_MIN_GROUNDED_TOKEN_OVERLAP_PROJECT", "2"))
+    else:
+        min_overlap = int(os.getenv("SUPERVISOR_MIN_GROUNDED_TOKEN_OVERLAP", "6"))
+    return overlap >= min_overlap
+
+
+def record_user_details(name: str, email: str) -> str:
+    """
+    Capture lead/contact details for follow-up.
+    """
+    log_path = os.getenv("USER_DETAILS_LOG_PATH", "database/user_details.jsonl")
+    payload = {
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "name": name.strip(),
+        "email": email.strip().lower(),
+    }
+    _append_jsonl(log_path, payload)
+    _send_pushover_notification(
+        title="H-CDT Lead Captured",
+        message=f"New contact captured: {payload['name']} <{payload['email']}>",
+    )
+    _send_email_notification(
+        subject="H-CDT Lead Captured",
+        body=f"New contact captured:\n\nName: {payload['name']}\nEmail: {payload['email']}\nTime: {payload['timestamp_utc']}",
+    )
+    return "Thanks. Your details are recorded and I will follow up."
+
+
+def record_unknown_question(question: str) -> str:
+    """
+    Capture unanswered questions to improve knowledge coverage.
+    """
+    log_path = os.getenv("UNKNOWN_QUESTIONS_LOG_PATH", "database/unknown_questions.jsonl")
+    payload = {
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "question": (question or "").strip(),
+    }
+    _append_jsonl(log_path, payload)
+    _send_pushover_notification(
+        title="H-CDT Unknown Question",
+        message=f"Unanswered query logged: {payload['question'][:240]}",
+    )
+    _send_email_notification(
+        subject="H-CDT Unknown Question",
+        body=f"An unanswered question was logged:\n\nQuestion: {payload['question']}\nTime: {payload['timestamp_utc']}",
+    )
+    return "I logged this question for knowledge improvement."
+
+
+def _handle_tool_call_if(tool_name: str, arguments: Dict[str, str]) -> str:
+    """
+    Tool handling using explicit if/elif branching.
+    """
+    if tool_name == "record_user_details":
+        return record_user_details(
+            name=str(arguments.get("name", "")),
+            email=str(arguments.get("email", "")),
+        )
+    elif tool_name == "record_unknown_question":
+        return record_unknown_question(question=str(arguments.get("question", "")))
+    return f"Unsupported tool: {tool_name}"
+
+
+def _handle_tool_call_dynamic(tool_name: str, arguments: Dict[str, str]) -> str:
+    """
+    Tool handling using dynamic globals() mapping.
+    """
+    fn = globals().get(tool_name)
+    if not callable(fn):
+        return f"Unsupported tool: {tool_name}"
+    try:
+        return str(fn(**arguments))
+    except TypeError:
+        return f"Invalid arguments for tool: {tool_name}"
 
 
 def _log_citations(results: List[Dict[str, object]]) -> None:
@@ -35,7 +324,7 @@ def _format_citations(results: List[Dict[str, object]]) -> str:
     return "\n".join(lines)
 
 
-def _format_answer(query: str, results: List[Dict[str, object]]) -> str:
+def _format_answer(results: List[Dict[str, object]]) -> str:
     if not results:
         return "I couldn't find relevant information right now."
 
@@ -202,10 +491,8 @@ def _format_identity_answer(results: List[Dict[str, object]]) -> str:
 
     # Strong preference: prepend resume content if present.
     resume_text = _load_resume_text()
-    used_resume = False
     if resume_text:
         combined = _remove_portfolio_nav_noise(" ".join([resume_text, combined]))
-        used_resume = True
 
     # Enrich identity context with live sources to avoid sparse summaries.
     extra_context_parts: List[str] = []
@@ -320,7 +607,60 @@ def answer_query(query: str, top_k: int = 0) -> str:
     - Calls tools or vector search
     - Formats grounded answer with citations
     """
+    def _dispatch_tool(tool_name: str, arguments: Dict[str, str]) -> str:
+        dispatch_mode = os.getenv("TOOL_DISPATCH_MODE", "dynamic").lower()
+        if dispatch_mode == "if":
+            return _handle_tool_call_if(tool_name, arguments)
+        return _handle_tool_call_dynamic(tool_name, arguments)
+
+    def _is_project_query(text: str) -> bool:
+        ql = text.lower()
+        return any(
+            key in ql
+            for key in [
+                "recent project",
+                "projects",
+                "technical work",
+                "what are",
+                "what is",
+                "capabilities",
+                "tech stack",
+            ]
+        )
+
+    def _project_source_priority(item: Dict[str, object]) -> int:
+        """
+        Prefer live, recency-oriented sources for project/technical queries.
+        """
+        meta = item.get("metadata") or {}
+        source_name = str(meta.get("source_name") or "").lower()
+        source_path = str(meta.get("source_path") or "").lower()
+        if "github_repos_live.json" in source_name or "live://github" in source_path:
+            return 0
+        if "portfolio_" in source_name or "live://portfolio" in source_path:
+            return 1
+        if "linkedin" in source_name or "live://linkedin" in source_path:
+            return 2
+        if "resume.md" in source_name:
+            return 3
+        return 4
+
+    debug = os.getenv("SUPERVISOR_DEBUG", "false").lower() == "true"
+
     intent = route_intent(query)
+
+    # Light-weight lead capture trigger (can later be replaced by model function-calling).
+    q = (query or "").strip()
+    m_contact = re.search(
+        r"(?:my name is|i am)\s+([A-Za-z][A-Za-z .'-]{1,60}).*?([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})",
+        q,
+        flags=re.IGNORECASE,
+    )
+    if m_contact:
+        name = " ".join(m_contact.group(1).split())
+        email = m_contact.group(2).strip()
+        return _dispatch_tool("record_user_details", {"name": name, "email": email})
+
     if intent == "get_links":
         parts = []
         ln = os.getenv("LINKEDIN_PROFILE", "").strip()
@@ -341,12 +681,31 @@ def answer_query(query: str, top_k: int = 0) -> str:
     if intent == "identity":
         k = top_k or int(os.getenv("SUPERVISOR_IDENTITY_TOP_K", "6"))
         results = search_similar_content(query, top_k=k)
+        _log_citations(results)
+        llm_answer = _generate_answer_with_openai(query, results, mode="identity")
+        grounded = bool(llm_answer) and _is_grounded_response(llm_answer, results, mode="identity")
+        if debug:
+            print(f"[supervisor] mode=identity llm_answer={'yes' if llm_answer else 'no'} grounded={'yes' if grounded else 'no'}")
+        if grounded:
+            return llm_answer
         return _format_identity_answer(results)
 
     # Default: retrieval
     k = top_k or int(os.getenv("SUPERVISOR_TOP_K", "3"))
     results = search_similar_content(query, top_k=k)
-    return _format_answer(query, results)
+    if not results:
+        _dispatch_tool("record_unknown_question", {"question": query})
+    else:
+        mode = "project_exec" if _is_project_query(query) else "retrieval"
+        ranked_results = sorted(results, key=_project_source_priority) if mode == "project_exec" else results
+        _log_citations(ranked_results)
+        llm_answer = _generate_answer_with_openai(query, ranked_results, mode=mode)
+        grounded = bool(llm_answer) and _is_grounded_response(llm_answer, ranked_results, mode=mode)
+        if debug:
+            print(f"[supervisor] mode={mode} llm_answer={'yes' if llm_answer else 'no'} grounded={'yes' if grounded else 'no'}")
+        if grounded:
+            return llm_answer
+    return _format_answer(results)
 
 
 if __name__ == "__main__":

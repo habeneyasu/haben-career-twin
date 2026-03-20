@@ -3,20 +3,13 @@ from typing import Dict, List
 
 from dotenv import load_dotenv
 
+from src.utils import safe_int_env
+
 load_dotenv()
 
-
-def _safe_int_env(name: str, default: int, minimum: int = 1) -> int:
-    try:
-        value = int(os.getenv(name, str(default)))
-    except ValueError:
-        value = default
-    return max(minimum, value)
-
-
 # Must be set before importing chromadb/rust runtime.
-os.environ.setdefault("RAYON_NUM_THREADS", str(_safe_int_env("RAYON_NUM_THREADS", 1)))
-os.environ.setdefault("TOKIO_WORKER_THREADS", str(_safe_int_env("TOKIO_WORKER_THREADS", 1)))
+os.environ.setdefault("RAYON_NUM_THREADS", str(safe_int_env("RAYON_NUM_THREADS", 1, minimum=1)))
+os.environ.setdefault("TOKIO_WORKER_THREADS", str(safe_int_env("TOKIO_WORKER_THREADS", 1, minimum=1)))
 
 import chromadb
 from chromadb.config import Settings
@@ -103,7 +96,7 @@ def upsert_embedding_records(records: List[Dict[str, object]]) -> int:
         return 0
 
     collection = _get_collection()
-    upsert_batch_size = _safe_int_env("VECTOR_UPSERT_BATCH_SIZE", 50)
+    upsert_batch_size = safe_int_env("VECTOR_UPSERT_BATCH_SIZE", 50, minimum=1)
 
     total = 0
     for i in range(0, len(records), upsert_batch_size):
@@ -122,7 +115,7 @@ def query_similar_chunks(
     if not query_embedding:
         return []
 
-    resolved_top_k = top_k or _safe_int_env("VECTOR_QUERY_TOP_K", 5)
+    resolved_top_k = top_k or safe_int_env("VECTOR_QUERY_TOP_K", 5, minimum=1)
     collection = _get_collection()
     result = collection.query(
         query_embeddings=[query_embedding],

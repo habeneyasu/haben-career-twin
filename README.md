@@ -93,16 +93,6 @@ PY
 python -m src.gradio_app
 ```
 
-## Example Queries & Outputs
-
-- Combined screenshot (both queries in one run):
-  - `Who is Haben, and what is his core engineering focus based only on available evidence?`
-  - `What are Haben’s recent projects, and for each one list business objective, technical stack, and measurable impact from available evidence?`
-
-![Combined Identity and Projects Responses](assets/screenshots/Screenshot%20from%202026-03-21%2014-05-02.png)
-
-Tip: keep screenshots around 1000–1400px width for readability on GitHub.
-
 ## Repository Map
 
 - `src/supervisor.py` - orchestration, grounding checks, lead-capture notifications

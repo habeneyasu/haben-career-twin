@@ -131,7 +131,11 @@ def _generate_answer_with_openai(query: str, results: List[Dict[str, object]], m
         system_prompt = (
             "You are a professional career profile assistant. "
             "Write a concise, human, executive-style profile grounded only in supplied evidence. "
+            "Prioritize authoritative public profile signals in this order when available: portfolio, LinkedIn, then GitHub. "
             "Do not invent facts, employers, timelines, or achievements. "
+            "Use inclusive, respectful language; avoid assumptions about gender, age, ethnicity, nationality, religion, or personal life. "
+            "If requested information is not present in resume, LinkedIn, GitHub, or portfolio evidence, explicitly state that it is not mentioned, "
+            "and add that the information has been noted for a later update. "
             "Format requirements for identity responses:\n"
             "- 2 to 4 sentences total.\n"
             "- Include role and core specialization.\n"
@@ -142,10 +146,14 @@ def _generate_answer_with_openai(query: str, results: List[Dict[str, object]], m
     elif mode == "project_exec":
         system_prompt = (
             "You are a professional assistant. Answer using only provided RAG context. "
-            "Be concise, specific, and business-oriented with natural human tone. Do not fabricate. "
+            "Be concise, specific, inclusive, and business-oriented with natural human tone. Do not fabricate. "
+            "If requested information is not present in resume, LinkedIn, GitHub, or portfolio evidence, explicitly state that it is not mentioned, "
+            "and add that the information has been noted for a later update. "
             "For 'recent projects' queries, prioritize the MOST RECENT project information from GitHub repository data. "
             "If GitHub repo context is present, use it as the primary source for Project name, Business Objective (from repo description/README), "
             "Core Capabilities (from actual implementation), and Technical Stack (from codebase evidence). "
+            "For Technical Stack, extract concrete tools/languages/frameworks mentioned in evidence (e.g., Python, FastAPI, ChromaDB, OpenRouter, Redis, Docker, Kafka). "
+            "For Measured/Expected Impact, extract available metrics from evidence (e.g., latency, throughput, uptime, institutions, transactions). "
             "Only describe capabilities that are currently implemented in this project baseline: "
             "live data ingestion (LinkedIn/GitHub/Portfolio), metadata enrichment, adaptive chunking, "
             "OpenRouter embeddings/chat synthesis, ChromaDB retrieval, SQLite cache, supervisor intent routing, "
@@ -165,9 +173,10 @@ def _generate_answer_with_openai(query: str, results: List[Dict[str, object]], m
     else:
         system_prompt = (
             "You are a professional assistant. Answer using only provided RAG context. "
-            "Be concise, specific, and business-oriented with natural human tone. Do not fabricate. "
+            "Be concise, specific, inclusive, and business-oriented with natural human tone. Do not fabricate. "
             "Provide a direct plain-text answer to the user's question. "
-            "If a fact is not present in evidence, explicitly say it is not available."
+            "If requested information is not present in resume, LinkedIn, GitHub, or portfolio evidence, explicitly state that it is not mentioned, "
+            "and add that the information has been noted for a later update."
         )
 
     user_prompt = (
@@ -326,7 +335,10 @@ def _format_citations(results: List[Dict[str, object]]) -> str:
 
 def _format_answer(results: List[Dict[str, object]]) -> str:
     if not results:
-        return "I couldn't find relevant information right now."
+        return (
+            "This information is not mentioned in the available resume, LinkedIn, GitHub, or portfolio evidence. "
+            "Your request has been noted, and I will inform Haben to update it later."
+        )
 
     def _format_github_context(items: List[Dict[str, object]]) -> str:
         combined = " ".join(str(i.get("content") or "") for i in items)
@@ -428,6 +440,252 @@ def _format_answer(results: List[Dict[str, object]]) -> str:
     header = f"Top context from {section_title or source_name}:" if (section_title or source_name) else "Top context:"
     _log_citations(results)
     return f"{header}\n{snippet}"
+
+
+def _not_mentioned_response() -> str:
+    return (
+        "This information is not mentioned in the available resume, LinkedIn, GitHub, or portfolio evidence. "
+        "Your request has been noted, and I will inform Haben to update it later."
+    )
+
+
+def _has_query_evidence_overlap(query: str, results: List[Dict[str, object]]) -> bool:
+    """
+    Lightweight relevance gate:
+    Ensure at least minimal lexical support between user query and retrieved evidence.
+    This prevents unrelated top-k chunks from being returned as if they answer the question.
+    """
+    q = (query or "").strip().lower()
+    if not q or not results:
+        return False
+
+    tokens = re.findall(r"[a-zA-Z][a-zA-Z0-9_+/.-]{2,}", q)
+    if not tokens:
+        return False
+
+    stopwords = {
+        "what",
+        "which",
+        "who",
+        "where",
+        "when",
+        "why",
+        "how",
+        "is",
+        "are",
+        "was",
+        "were",
+        "does",
+        "do",
+        "did",
+        "and",
+        "or",
+        "the",
+        "a",
+        "an",
+        "with",
+        "about",
+        "have",
+        "has",
+        "had",
+        "his",
+        "her",
+        "their",
+        "experience",
+        "development",
+        "haben",
+        "eyasu",
+        "akelom",
+        "software",
+        "engineer",
+    }
+    query_terms = {t for t in tokens if t not in stopwords}
+    if not query_terms:
+        return False
+
+    # Tokenize evidence and use exact token intersection (no substrings).
+    evidence_text = " ".join(" ".join(str(r.get("content") or "").split())[:1200] for r in results).lower()
+    evidence_tokens = set(re.findall(r"[a-zA-Z][a-zA-Z0-9_+/.-]{2,}", evidence_text))
+    overlap = len(query_terms & evidence_tokens)
+
+    # Stricter default for multi-term queries: require >=2; allow env override.
+    default_min = 2 if len(query_terms) >= 2 else 1
+    min_overlap = int(os.getenv("SUPERVISOR_MIN_QUERY_EVIDENCE_OVERLAP", str(default_min)))
+    return overlap >= max(1, min_overlap)
+
+
+def _extract_requested_topics(query: str) -> List[str]:
+    """
+    Extract explicit requested topics from queries like:
+    - "experience with quantum computing and rust development"
+    - "skills in x, y, and z"
+    """
+    q = (query or "").strip().lower()
+    if not q:
+        return []
+
+    match = re.search(
+        r"(?:experience with|skills in|skill in|background in|knowledge of|work with)\s+(.+)$",
+        q,
+    )
+    if not match:
+        return []
+
+    tail = match.group(1)
+    tail = re.sub(r"[?.!]+$", "", tail).strip()
+    if not tail:
+        return []
+
+    parts = re.split(r"\s*,\s*|\s+and\s+", tail)
+    cleaned: List[str] = []
+    for p in parts:
+        candidate = re.sub(r"\s+", " ", p).strip(" -")
+        if not candidate:
+            continue
+        # Drop short/noisy pieces.
+        if len(candidate) < 3:
+            continue
+        cleaned.append(candidate)
+    return list(dict.fromkeys(cleaned))
+
+
+def _evidence_covers_requested_topics(topics: List[str], results: List[Dict[str, object]]) -> bool:
+    """
+    Strict topic gate:
+    For explicit "experience with X/Y" queries, require each requested topic
+    to be present in retrieved evidence before answering as supported.
+    """
+    if not topics:
+        return True
+    if not results:
+        return False
+
+    evidence_text = " ".join(str(r.get("content") or "") for r in results).lower()
+    evidence_text = re.sub(r"\s+", " ", evidence_text)
+
+    for topic in topics:
+        # Normalize "rust development" -> tokens ["rust", "development"] and
+        # require at least one non-generic token present, preferring full phrase.
+        phrase = re.sub(r"\s+", " ", topic).strip()
+        if phrase and re.search(rf"\b{re.escape(phrase)}\b", evidence_text):
+            continue
+
+        topic_tokens = [t for t in re.findall(r"[a-zA-Z][a-zA-Z0-9_+/.-]{2,}", phrase) if t not in {"development", "experience", "skills"}]
+        if not topic_tokens:
+            return False
+        if not any(re.search(rf"\b{re.escape(t)}\b", evidence_text) for t in topic_tokens):
+            return False
+
+    return True
+
+
+def _is_small_talk_query(query: str) -> bool:
+    q = (query or "").strip().lower()
+    if not q:
+        return False
+    patterns = [
+        r"^(hi|hello|hey|hey there|good morning|good afternoon|good evening)[!. ]*$",
+        r"^(thanks|thank you|thx)[!. ]*$",
+        r"^(how are you|how are you doing)[?.! ]*$",
+        r"^(ok|okay|cool|great|nice)[!. ]*$",
+    ]
+    return any(re.match(p, q) for p in patterns)
+
+
+def _small_talk_response(query: str) -> str:
+    q = (query or "").strip().lower()
+    if any(k in q for k in ["thanks", "thank you", "thx"]):
+        return (
+            "You are very welcome. I am here to help with questions about Haben's background, "
+            "projects, technical stack, and experience. "
+            "Try asking: 'What are Haben's recent projects?' or 'What is his tech stack?'"
+        )
+    if "how are you" in q:
+        return (
+            "I am doing well, thank you for asking. "
+            "How can I support you today with Haben's profile or projects? "
+            "You can ask about recent projects, core skills, or architecture experience."
+        )
+    return (
+        "Hi, great to connect. "
+        "I can help with questions about Haben's experience, projects, skills, and contact links. "
+        "Try asking about recent projects or the technical stack."
+    )
+
+
+def _extract_project_stack_and_impact(results: List[Dict[str, object]]) -> Dict[str, str]:
+    """
+    Deterministically extract stack and impact hints from retrieved evidence
+    so project_exec answers don't miss obvious data in GitHub/portfolio text.
+    """
+    text = " ".join(" ".join(str(r.get("content") or "").split()) for r in results).lower()
+
+    stack_candidates = [
+        "python",
+        "java",
+        "fastapi",
+        "spring boot",
+        "kafka",
+        "redis",
+        "docker",
+        "kubernetes",
+        "chromadb",
+        "faiss",
+        "openrouter",
+        "langchain",
+        "gradio",
+        "postgresql",
+        "mysql",
+        "mongodb",
+        "oauth2",
+        "jwt",
+    ]
+    found_stack = [s for s in stack_candidates if re.search(rf"\b{re.escape(s)}\b", text)]
+
+    metric_patterns = [
+        r"\b\d+\.?\d*\s*m\+\s*txns?/month\b",
+        r"\b\d+\.?\d*\s*m\+\s*transactions?/month\b",
+        r"\b\d+\+?\s*financial institutions?\b",
+        r"\b\d+\+?\s*banks?\b",
+        r"\b\d+\.?\d*%\s*uptime\b",
+        r"\b\d+\.?\d*%\s*(?:latency reduction|reduction)\b",
+        r"\bminutes to seconds\b",
+    ]
+    impacts: List[str] = []
+    for p in metric_patterns:
+        for m in re.findall(p, text, flags=re.IGNORECASE):
+            impacts.append(m if isinstance(m, str) else str(m))
+    impacts = list(dict.fromkeys(i.strip() for i in impacts if i and str(i).strip()))
+
+    return {
+        "stack": ", ".join(found_stack[:8]) if found_stack else "",
+        "impact": " | ".join(impacts[:4]) if impacts else "",
+    }
+
+
+def _enrich_project_exec_answer(answer: str, results: List[Dict[str, object]]) -> str:
+    if not answer:
+        return answer
+    extracted = _extract_project_stack_and_impact(results)
+    stack_val = extracted.get("stack", "")
+    impact_val = extracted.get("impact", "")
+
+    out = answer
+    if stack_val:
+        out = re.sub(
+            r"(Technical Stack\s*\n)\s*Not explicitly stated in available evidence\.",
+            lambda m: f"{m.group(1)}{stack_val}",
+            out,
+            flags=re.IGNORECASE,
+        )
+    if impact_val:
+        out = re.sub(
+            r"(Measured/Expected Impact\s*\n)\s*Not explicitly stated in available evidence\.",
+            lambda m: f"{m.group(1)}{impact_val}",
+            out,
+            flags=re.IGNORECASE,
+        )
+    return out
 
 
 def _format_identity_answer(results: List[Dict[str, object]]) -> str:
@@ -583,17 +841,21 @@ def _format_identity_answer(results: List[Dict[str, object]]) -> str:
     if role:
         lines.append(f"{name} is a {role}.")
     else:
-        lines.append(f"{name} is a Senior Software & AI/ML Engineer.")
-    if years:
-        lines.append(f"Experience: {years}.")
-    if focus:
-        lines.append("Focus: " + ", ".join(focus) + ".")
-    elif role:
-        lines.append("Focus: AI/ML systems, backend engineering, and production-grade RAG.")
+        lines.append(f"{name} is a Senior Software & AI Engineer.")
+
+    if years and focus:
+        lines.append(f"Based on publicly available profile evidence, experience includes {years} with focus on {', '.join(focus)}.")
+    elif years:
+        lines.append(f"Based on publicly available profile evidence, experience includes {years}.")
+    elif focus:
+        lines.append(f"Based on publicly available profile evidence, focus areas include {', '.join(focus)}.")
+    else:
+        lines.append("Based on publicly available profile evidence, focus includes AI/ML systems, backend engineering, and production-grade RAG.")
+
     if metrics:
-        lines.append("Impact: " + " | ".join(metrics) + ".")
+        lines.append("Representative impact signals include " + " | ".join(metrics) + ".")
     if evidence:
-        lines.append("Evidence: " + evidence)
+        lines.append("Sample evidence: " + evidence)
 
     # Keep citations from retrieval sources in original style.
     _log_citations(ordered)
@@ -647,6 +909,9 @@ def answer_query(query: str, top_k: int = 0) -> str:
 
     debug = os.getenv("SUPERVISOR_DEBUG", "false").lower() == "true"
 
+    if _is_small_talk_query(query):
+        return _small_talk_response(query)
+
     intent = route_intent(query)
 
     # Light-weight lead capture trigger (can later be replaced by model function-calling).
@@ -691,21 +956,34 @@ def answer_query(query: str, top_k: int = 0) -> str:
         return _format_identity_answer(results)
 
     # Default: retrieval
-    k = top_k or int(os.getenv("SUPERVISOR_TOP_K", "3"))
+    project_mode = _is_project_query(query)
+    default_k = int(os.getenv("SUPERVISOR_PROJECT_TOP_K", "8")) if project_mode else int(os.getenv("SUPERVISOR_TOP_K", "3"))
+    k = top_k or default_k
     results = search_similar_content(query, top_k=k)
     if not results:
         _dispatch_tool("record_unknown_question", {"question": query})
+        return _not_mentioned_response()
     else:
-        mode = "project_exec" if _is_project_query(query) else "retrieval"
+        mode = "project_exec" if project_mode else "retrieval"
         ranked_results = sorted(results, key=_project_source_priority) if mode == "project_exec" else results
+        requested_topics = _extract_requested_topics(query)
+        if requested_topics and not _evidence_covers_requested_topics(requested_topics, ranked_results):
+            _dispatch_tool("record_unknown_question", {"question": query})
+            return _not_mentioned_response()
+        if not _has_query_evidence_overlap(query, ranked_results):
+            _dispatch_tool("record_unknown_question", {"question": query})
+            return _not_mentioned_response()
         _log_citations(ranked_results)
         llm_answer = _generate_answer_with_openai(query, ranked_results, mode=mode)
+        if mode == "project_exec":
+            llm_answer = _enrich_project_exec_answer(llm_answer, ranked_results)
         grounded = bool(llm_answer) and _is_grounded_response(llm_answer, ranked_results, mode=mode)
         if debug:
             print(f"[supervisor] mode={mode} llm_answer={'yes' if llm_answer else 'no'} grounded={'yes' if grounded else 'no'}")
         if grounded:
             return llm_answer
-    return _format_answer(results)
+        return _format_answer(ranked_results)
+    return _not_mentioned_response()
 
 
 if __name__ == "__main__":

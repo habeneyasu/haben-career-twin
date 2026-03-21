@@ -1,125 +1,121 @@
-# H‑CDT: Haben's Career Digital Twin
+# 🤖 H-CDT: Haben-Career Digital Twin
 
-[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
-[![Gradio](https://img.shields.io/badge/Gradio-5.9+-orange.svg)](https://gradio.app/)
-[![ChromaDB](https://img.shields.io/badge/ChromaDB-Latest-green.svg)](https://www.trychroma.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Supervisor_Orchestration](https://img.shields.io/badge/Orchestration-Supervisor_Pattern-8A2BE2.svg)](#architecture-of-responsibility)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-Persistent-green.svg)](https://www.trychroma.com/)
+[![Deployed_on_HuggingFace](https://img.shields.io/badge/Deployed-HuggingFace_Spaces-yellow.svg)](https://huggingface.co/spaces)
+[![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)
 
-An executive‑ready, production‑grade AI agent that turns static résumé data and live professional signals (LinkedIn, GitHub, Portfolio) into credible, on‑demand answers.
+**Build and deploy your own Agent to represent you to potential future employers.**
 
-## Problem
+**A Production-Grade Supervisor-Driven Autonomous AI Agent for Technical Recruiting.**
 
-Profiles and portfolios get outdated fast. Recruiters and clients want instant, accurate answers about recent work, skills, and impact—without scheduling a call or hunting across links.
+Combined example (two queries in one screenshot):
 
-## Approach
+- Who is Haben, and what is his core engineering focus based only on available evidence?
+- What are Haben’s recent projects, and for each one list business objective, technical stack, and measurable impact from available evidence?
 
-Treat the professional profile like a product. Build a resilient Retrieval‑Augmented Generation (RAG) system that fuses the résumé with live GitHub, LinkedIn, and portfolio signals; add a supervisor that routes intent and synthesizes grounded answers.
+![Combined Identity and Projects Responses](assets/screenshots/Screenshot%20from%202026-03-21%2014-05-02.png)
 
-## Solution
+Replacing static resumes with a self-auditing, agentic proxy that provides real-time, grounded answers about my 8+ years of engineering experience.
 
-H‑CDT unifies multi‑source data into a vector index and serves business‑ready responses with citations. It’s memory‑efficient, cloud‑deployable, and avoids hallucinations via validation and fallbacks.
+H-CDT is designed as a reliability-first recruiting system, not a demo chatbot: it ingests trusted career evidence, retrieves relevant context in milliseconds, and responds with grounded, production-safe answers.
 
-## Outcomes
+## Architecture of Responsibility
 
-- 24/7 professional presence with consistent, high‑quality answers
-- Faster stakeholder decisions from credible, source‑cited responses
-- Freshness from live GitHub/LinkedIn/portfolio integration
-- Lead capture with push/email alerts for instant follow‑ups
+H-CDT uses a supervisor-first control plane so each component has a single operational responsibility:
 
-## What It Does (In Plain Terms)
+- **Supervisor orchestration pattern:** The supervisor orchestrates intent routing, response assembly, and grounding checks across retrieval and action pathways.
+- **Knowledge path (agent memory):** Retrieves and ranks evidence from resume, GitHub, LinkedIn, and portfolio data in ChromaDB.
+- **Action path (tools):** Executes operational tools such as Pushover and SMTP notifications for recruiter lead capture and follow-up.
+- **Guardrail before output:** Responses are validated against retrieved evidence to reduce hallucination risk before a final answer is returned.
 
-- Answers “Who is Haben?” in 2‑4 executive sentences, grounded in evidence
-- Summarizes recent projects and technical work from live GitHub + portfolio
-- Shares links on request and surfaces the most relevant citations
-- Logs unknown questions and captures contact details for follow‑ups
-
-## Key Capabilities
-
-- Multi‑Source RAG over résumé + GitHub + LinkedIn + portfolio
-- Intent‑aware routing (identity, projects, links, retrieval)
-- Evidence‑grounded answers with citation logging (no hallucinations)
-- Adaptive chunking and memory‑safe, batched processing
-- Real‑time notifications (Pushover/email) for leads and gaps
-- Deployed to Hugging Face Spaces with a clean Gradio UI
-
-## Technical Stack (at a Glance)
-
-| Category | Technology |
-|----------|-----------|
-| Language & Runtime | Python 3.12+ with `uv` |
-| Vector Database | ChromaDB |
-| Caching Layer | SQLite (TTL cache + logs) |
-| AI/ML Services | OpenRouter (embeddings + chat) |
-| Web Framework | Gradio (Hugging Face Spaces) |
-| Data Processing | BeautifulSoup4, requests |
-| Config | python‑dotenv |
-| Architecture | Modular pipeline + supervisor + grounding validation |
-
-## Architecture (How It Works)
-
-```
-Problem/Question
-   ↓
-Supervisor (Intent Router)
-   ↓
-Live + Local Data (GitHub, LinkedIn, Portfolio, résumé)
-   ↓
-RAG Pipeline: Ingest → Metadata → Adaptive Chunking → Embeddings → ChromaDB
-   ↓
-LLM Synthesis (OpenRouter) → Grounding Validation → Clean, cited answer
+```text
+User Question
+  -> Supervisor (orchestration + policy)
+      -> Knowledge Path (retrieve + synthesize)
+      -> Action Path (notify/log/follow-up)
+  -> Grounding Validation
+  -> Final Answer with Evidence Context
 ```
 
-### Components
+## Reliability and Evaluation (Production Differentiator)
 
-| Component | Purpose | Location |
-|-----------|---------|----------|
-| Supervisor | Orchestrates routing + response | `src/supervisor.py` |
-| Router | Classifies intent | `src/router.py` |
-| Tools | Live data connectors | `src/tools.py` |
-| Pipeline | RAG processing | `src/pipeline/` |
-| Vector Store | ChromaDB ops | `src/pipeline/vector_store.py` |
-| Cache | SQLite TTL cache | `src/persistence.py` |
-| UI | Gradio chat | `src/gradio_app.py` |
+Most agent demos stop at response generation. H-CDT adds an explicit reliability layer:
+
+- **Single-LLM synthesis + grounding gate:** Primary LLM generates the response, then a deterministic grounding validator checks overlap with retrieved evidence before answer release.
+- **Grounding-first responses:** The system answers from confirmed evidence (resume + GitHub + LinkedIn + portfolio corpus) and falls back to transparent uncertainty when context is missing.
+- **Self-correction behavior (implemented):** A grounding gate validates LLM output against retrieved evidence; when validation fails, the supervisor falls back to deterministic evidence-formatted answers instead of speculative generation.
+- **Latency-aware retrieval:** ChromaDB persistent indexing supports fast semantic lookup for recruiter-style questions.
+
+## Streaming Ingestion Pipeline (O(1) Memory Footprint)
+
+The ingestion/indexing pipeline is optimized for low-resource environments (including 8GB RAM machines):
+
+- **Step 1 - Hash:** Deterministic IDs and dedup-ready document signatures.
+- **Step 2 - Metadata:** Source-aware metadata normalization for reliable filtering/citation.
+- **Step 3 - Chunk:** Dynamic chunking and overlap tuned for retrieval precision and context continuity.
+- **Batch-safe upserts:** Embedding and vector writes run in bounded batches to keep memory usage stable as corpus size grows.
+
+## Infrastructure as Code and MLOps Maturity
+
+- **Dynamic chunking strategy:** Uses adaptive chunk sizes with overlap (default range controlled by env vars, typically 500-2000 chars) to balance retrieval precision and context continuity.
+- **Secret management (zero-trust):** Runtime keys are injected via environment variables and deployment secrets (`.env` locally, Hugging Face Secrets in cloud).
+- **Real-time observability:** Pushover + email notifications act as production monitoring hooks when high-value recruiter leads are captured.
+  - Instant push notifications via Pushover allow for real-time engagement when technical recruiters interact with the system.
+- **Deployment discipline:** Single-entry app for Hugging Face Spaces (`app.py`) with modular pipeline components under `src/pipeline/`.
+
+## Core Stack
+
+| Layer | Technology |
+|---|---|
+| Runtime | Python, `uv` |
+| LLM + Embeddings | OpenRouter-compatible models |
+| Agent Memory & Retrieval | ChromaDB (persistent vector knowledge store) |
+| Orchestration | Supervisor/sub-agent control flow |
+| Interface | Gradio (Hugging Face Spaces) |
+| Persistence | SQLite + JSONL logs |
 
 ## Quick Start
 
 ```bash
-# Clone and install
 git clone https://github.com/habeneyasu/haben-career-twin.git
 cd haben-career-twin
-uv pip install -r requirements.txt
+uv sync
 
-# Configure
-cp .env.example .env
-# Fill in OPENROUTER_* and profile URLs
+# Configure runtime secrets and profile URLs in .env
 
-# Build index
 python3 - <<'PY'
 from src.pipeline.run_pipeline import build_vector_index
 print(build_vector_index(use_live=True, include_local_processed=True, dynamic_chunking=True))
 PY
 
-# Run app
 python -m src.gradio_app
 ```
 
-## Configuration (Essentials)
+## Example Queries & Outputs
 
-- `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_EMBEDDING_MODEL`, `OPENROUTER_CHAT_MODEL`
-- `GITHUB_PROFILE`, `PORTIFOLIO_PROFILE`, `LINKEDIN_PROFILE`
-- `CHROMA_DB_PATH`, `CACHE_DB_PATH`, `RAYON_NUM_THREADS`, `TOKIO_WORKER_THREADS`
+- Combined screenshot (both queries in one run):
+  - `Who is Haben, and what is his core engineering focus based only on available evidence?`
+  - `What are Haben’s recent projects, and for each one list business objective, technical stack, and measurable impact from available evidence?`
 
-See `.env.example` for a complete list.
+![Combined Identity and Projects Responses](assets/screenshots/Screenshot%20from%202026-03-21%2014-05-02.png)
 
-## Troubleshooting
+Tip: keep screenshots around 1000–1400px width for readability on GitHub.
 
-- Empty answers? Rebuild the index and verify OpenRouter keys.
-- Memory issues? Lower batch sizes and set thread limits to 1.
-- Import errors? Run from project root and use `python -m src.gradio_app`.
+## Repository Map
 
-## License & Contact
+- `src/supervisor.py` - orchestration, grounding checks, lead-capture notifications
+- `src/router.py` - intent classifier called by the supervisor (routing policy)
+- `src/tools.py` - external data/tool adapters
+- `src/pipeline/` - ingestion, metadata, chunking, embedding, indexing
+- `src/pipeline/vector_store.py` - ChromaDB upsert/query abstraction
+- `src/gradio_app.py` - UI runtime
+- `app.py` - Hugging Face Spaces entrypoint
 
-- License: MIT (see `LICENSE`)
-- GitHub: [@habeneyasu](https://github.com/habeneyasu)
-- LinkedIn: [habeneyasu](https://www.linkedin.com/in/habeneyasu)
-- Portfolio: [habeneyasu.github.io](https://habeneyasu.github.io/)
+## License and Contact
+
+- MIT License (`LICENSE`)
+- [GitHub](https://github.com/habeneyasu)
+- [LinkedIn](https://www.linkedin.com/in/habeneyasu)
+- [Portfolio](https://habeneyasu.github.io/)

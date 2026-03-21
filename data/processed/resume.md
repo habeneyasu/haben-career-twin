@@ -1,108 +1,90 @@
-
-
-## Haben Eyasu Akelom
-Machine Learning Engineer | MLOps & FinTech AI Specialist
-habeneyasu@gmail.com
-
-## 251942707424
-
-linkedin.com/in/habeneyasu
-
-github.com/habeneyasu
-
-https://habeneyasu.github.io/
+# Haben Eyasu Akelom
+Senior Software & AI Engineer | LLM Systems • RAG • Production ML • Scalable FinTech Platforms | Andela AI Engineering Bootcamp (Top 9%)
+## Contact
+- Email: habeneyasu@gmail.com
+- Phone: +251 942 707 424
+- Location: Addis Ababa, Ethiopia
+- LinkedIn: https://www.linkedin.com/in/habeneyasu
+- GitHub: https://github.com/habeneyasu
+- Portfolio: https://habeneyasu.github.io/
 
 ## Professional Summary
-Senior  Machine  Learning  Engineer  with  over  5  years  of  experience  bridging  the  gap  between  advanced  data  science  and
-production-grade software architecture. Proven track record in designing and deploying end-to-end ML systems, including Credit
-Scoring APIs, Fraud Detection models, and RAG-based NLP chatbots within high-scale FinTech environments.
-Expert in the full ML lifecycle—from statistical modeling and feature engineering to MLOps (MLflow, DVC, Containerization) and
-real-time model serving. Combines deep technical proficiency in the Python data science stack with a background in scalable Java
-microservices, ensuring that AI solutions are not just accurate, but secure, performant, and enterprise-ready.
-## Skills
-Machine Learning & AI
-•Modeling: Supervised/ Unsupervised Learning, Predictive
-Modeling, Statistical Analysis, A/ B Testing, Time-Series
-## Forecasting.
-•NLP & LLMs: RAG Systems, Semantic Search (FAISS,
-ChromaDB), LLM Integration (GPT-4, Hugging Face),
-## Sentiment Analysis, Transformers.
-•MLOps: MLflow (Experiment Tracking, Registry), DVC (Data
-Versioning), Containerized Serving (Docker), Model
-Monitoring, CI/ CD (GitHub Actions, Jenkins).
-•Core Libraries: Scikit-learn, XGBoost, PyTorch/ TensorFlow,
-Pandas, NumPy, Matplotlib/ Seaborn.
-## Software Architecture & Engineering
-•Backend & APIs: Python (FastAPI), Java (Spring Boot), REST/
-SOAP APIs, Microservices, Event-Driven Design (Kafka).
-•Databases: PostgreSQL, MySQL, MongoDB, Redis (Caching
-& Low-Latency Inference).
-•Infrastructure & DevOps: Docker, Kubernetes (basic), Linux/
-## Bash, Agile/ Scrum.
-## Work Experience
-Machine Learning Portfolio Projects, Project-Based Training
-•MLOps & Production AI Engineering: Architected and deployed end-to-end machine learning systems for critical financial
-applications, including a containerized credit scoring API and an interpretable fraud detection model with SHAP-based
-explainability. Established full CI/ CD pipelines using Docker, GitHub Actions, and MLflow for versioning, automated testing, and
-production monitoring.
-•Advanced Data Science & NLP: Developed and validated predictive models across diverse domains, including:
-Sentiment-driven stock price forecasting using NLP (BERT, FinBERT) and technical indicators
-Insurance risk analytics with A/ B hypothesis testing and regression modeling to optimize premiums
-A financial complaints RAG chatbot leveraging semantic search (FAISS) and LLMs (GPT-4) for actionable insights
-•Data Pipeline & Analytics Leadership: Engineered a scalable solar data analysis system processing 10M+ measurements, building
-automated EDA pipelines that reduced initial analysis time by 60%. Delivered an interactive Streamlit dashboard for real-time solar
-potential ranking and operational decision support.
-Senior Software Engineer, Kacha Digital Financial Service S.C
-•Production ML Deployment: Architected and led the development of a Core Credit Scoring API, a high-performance FastAPI
-microservice that orchestrates machine learning models with rule-based logic to automate real-time financial risk assessment.
-•Data Engineering for AI: Engineered robust ETL pipelines and secure data ingestion workflows for KYC and transaction
-processing, enabling real-time feature engineering and model decisioning within the financial ecosystem.
-•High-Scale Infrastructure: Built and managed an enterprise USSD and mobile platform serving 27+ financial institutions,
-processing 8M+ transactions monthly with high availability and multi-tenant isolation.
-•System Optimization: Reduced critical API response times for scoring services by 60% through Redis caching, connection
-pooling, and asynchronous processing, ensuring low-latency model inference.
-•Secure AI Architecture: Implemented comprehensive security frameworks (OAuth2/ JWT, AES-256 encryption, and RBAC) and
-audit trails to ensure ML model data privacy and regulatory compliance.
-•Scalable Microservices: Designed and deployed containerized microservices supporting thousands of concurrent sessions across 4
-languages, utilizing Docker for consistent environment staging.
-Full-Stack Engineer, AELAF Engineering
-•Architected & Developed a Multi-Provider Payment Platform supporting 5 telecom providers with real-time ledger tracking
-and high-volume transaction processing (10,000+ daily voucher issuances). Optimized MySQL/ PostgreSQL architecture reducing
-system latency by 40% for bulk operations.
-•Engineered Secure Enterprise APIs & Systems using REST/ SOAP with JWT authentication, role-based access control (RBAC),
-and Kafka-based event-driven architecture. Built React-based monitoring dashboards with comprehensive reporting capabilities.
-## 11/2025 – 11/2025 | Addis Ababa, Ethiopia
-## 12/2023 – Present | Addis Ababa, Ethiopia
-## 12/2020 – 12/2023 | Addis Ababa, Ethiopia
-## 1 / 2
+Senior Software and AI/ML Engineer with experience building production systems across fintech and applied machine learning. Delivers end-to-end solutions spanning secure data ingestion, model-enabled services, retrieval-augmented generation, and backend platform reliability. Combines practical MLOps discipline with scalable API and microservice architecture.
 
-•Implemented DevOps & Automation Pipelines integrating CI/ CD with Jenkins, automated reporting via PostgreSQL materialized
-views and scheduled jobs, and established containerized deployment strategies.
-## Software Engineer,
-Defense University College of Engineering | Bishoftu, Ethiopia
-•Designed & Developed Full-Stack Institutional Systems including a clinic management system (digitizing patient records/
-appointments) and university registrar system (serving thousands of students), using Java, Spring Boot/ MVC, React, and MySQL/
-PostgreSQL.
-•Implemented Robust Backend Architectures with secure RESTful APIs, data validation, transaction integrity, and responsive
-frontend interfaces that improved administrative efficiency by 60%.
-## Projects
-## Lead Architect & Developer | Enterprise Projects,
-## Personal Portfolio
-•Enterprise MaaS Platform: Designed high-volume, multi-tenant SaaS for bulk SMS using Spring Boot 3, implementing hybrid
-multi-tenancy (row/ schema/ database isolation), API gateway with JWT/ auth, and telecom integrations with 99%+ simulated
-reliability.
-•Microservices & Cloud-Native Systems:
-•Architected 4-core microservice e-commerce platform using Spring Cloud, DDD, and reactive programming (WebFlux)
-•Built real-time log processing microservice (Next.js/ Node.js) handling 1GB+ files in <5 minutes with WebSocket dashboard
-•Developed production-grade finance tracker API (FastAPI, PostgreSQL) with OAuth2, Docker/ Kubernetes CI/ CD, and 90% test
-coverage
+## Core Competencies
+- AI/ML Engineering: Supervised and unsupervised learning, model evaluation, forecasting, feature engineering
+- LLM/RAG Systems: Semantic retrieval, ChromaDB/FAISS, prompt design, grounding-aware response patterns
+- MLOps: MLflow, DVC, Docker, CI/CD workflows, deployment and monitoring practices
+- Backend Engineering: Python (FastAPI), Java (Spring Boot), REST/SOAP APIs, event-driven systems (Kafka)
+- Data Platforms: PostgreSQL, MySQL, MongoDB, Redis
+- Security Engineering: OAuth2/JWT, RBAC, encryption (AES-256), audit and access-control patterns
+
+## Technical Stack Keywords
+Python, FastAPI, Java, Spring Boot, Kafka, Redis, PostgreSQL, MySQL, MongoDB, Docker, Kubernetes, MLflow, DVC, scikit-learn, XGBoost, PyTorch, TensorFlow, Pandas, NumPy, Matplotlib, Seaborn, ChromaDB, FAISS, RAG, LLM integration.
+
+## Professional Experience
+
+### Senior Software Engineer — Kacha Digital Financial Service S.C
+**Location:** Addis Ababa, Ethiopia  
+**Period:** 12/2023 – Present
+
+- Leads development of production systems including credit scoring and risk assessment services.
+- Designs secure KYC and transaction data pipelines enabling near real-time feature workflows and decisioning.
+- Operates high-scale financial platforms with multi-institution integration and significant monthly transaction volume.
+- Improves service latency through Redis caching, async processing, and connection tuning.
+- Implements API/application security controls (OAuth2/JWT, RBAC, encryption) and audit mechanisms.
+
+**Key retrieval tags:** Senior Software Engineer, Fintech, Credit Scoring API, FastAPI, Redis, OAuth2, JWT, RBAC.
+
+### Full Stack Developer / Software Engineer — AELAF Engineering
+**Location:** Addis Ababa, Ethiopia  
+**Period:** 12/2020 – 12/2023
+
+- Built multi-provider payment platform capabilities with ledger tracking and high-volume transaction support.
+- Designed secure enterprise API integrations using REST/SOAP, JWT authentication, and Kafka-based event flows.
+- Supported operational visibility with reporting and dashboard-oriented interfaces.
+
+**Key retrieval tags:** Full-Stack Engineer, Payments, Telecom Integration, Kafka, REST, SOAP, JWT.
+
+### Software Engineer — Defense University College of Engineering
+**Location:** Bishoftu, Ethiopia  
+**Period:** 2017 – 2019
+
+- Built institutional software systems (clinic and registrar) using Java/Spring and relational databases.
+- Implemented secure backend workflows with validation, transaction integrity, and role-aware access patterns.
+- Delivered maintainable full-stack features that improved administrative process efficiency.
+
+**Key retrieval tags:** Software Engineer, Java, Spring Boot, Registrar System, Clinic System, PostgreSQL, MySQL.
+
+## Selected Projects
+
+### Core Credit Scoring API
+- Architected a model-enabled API service for real-time financial risk assessment.
+- Combined machine learning outputs, rules, and secure service integration for production use.
+
+### Financial Complaints RAG Assistant
+- Built a retrieval-augmented assistant for complaints intelligence using semantic search and LLM generation.
+- Focused on explainable, source-aware response quality.
+
+### Solar Analytics Pipeline
+- Developed data processing workflows for large measurement datasets.
+- Automated exploratory analysis and improved time-to-insight for operational reporting.
+
+### Enterprise MaaS Platform
+- Designed multi-tenant messaging platform architecture with authentication and telecom provider integration.
+
+## Measurable Outcomes (Reported)
+- 8M+ transactions/month supported in fintech platform operations.
+- ~60% API latency reduction in selected scoring-service paths.
+- 10M+ measurements processed in analytics pipeline work.
+- 27+ financial institutions served by integrated platform capabilities.
+
 ## Education
-Defense University, College of Engineering,
-M.Tech. in Computer Engineering
-## Mekelle University,
-B.Sc. in Information Technology (Engineering)
-## 2017 – 2019
-## 2022
-## 09/2019 – 12/2021 | Bishoftu, Ethiopia
-## 09/2011 – 07/2016 | Mekelle, Ethiopia
-## 2 / 2
+- Defense University, College of Engineering — M.Tech. in Computer Engineering  
+  09/2019 – 12/2021 | Bishoftu, Ethiopia
+- Mekelle University — B.Sc. in Information Technology (Engineering)  
+  09/2011 – 07/2016 | Mekelle, Ethiopia
+
+## Retrieval Notes
+- This document is structured for semantic retrieval and evidence-grounded profile responses.
+- Metrics and role claims are stated conservatively and based on provided source content.

@@ -10,14 +10,22 @@
 
 **A Production-Grade Supervisor-Driven Autonomous AI Agent for Technical Recruiting.**
 
-Combined example (two queries in one screenshot):
+Live demo: [https://huggingface.co/spaces/habeneyasu/haben-career-twin](https://huggingface.co/spaces/habeneyasu/haben-career-twin)
+
+> **⚠️ Live demo status**
+> The Hugging Face Space currently runs a quantized Ollama model on free-tier infrastructure, so reasoning depth may be limited.
+> Some responses may be incomplete or fall back to "no evidence found" even when supporting data exists.
+> The architecture and codebase remain fully functional; this behavior reflects hosting/runtime trade-offs, not a system-design flaw.
+> For full production quality, use a higher-capacity model endpoint (for example GPT-4o via OpenRouter) with the same pipeline.
+
+Combined example (two prompts in one screenshot):
 
 - Who is Haben, and what is his core engineering focus based only on available evidence?
 - What are Haben’s recent projects, and for each one list business objective, technical stack, and measurable impact from available evidence?
 
 ![Combined Identity and Projects Responses](assets/screenshots/Screenshot%20from%202026-03-21%2014-05-02.png)
 
-Replacing static resumes with a self-auditing, agentic proxy that provides real-time, grounded answers about my 8+ years of engineering experience.
+Replacing static resumes with a self-auditing agentic proxy that provides real-time, grounded answers about 8+ years of engineering experience.
 
 H-CDT is designed as a reliability-first recruiting system, not a demo chatbot: it ingests trusted career evidence, retrieves relevant context in milliseconds, and responds with grounded, production-safe answers.
 
@@ -70,9 +78,9 @@ The ingestion/indexing pipeline is optimized for low-resource environments (incl
 | Layer | Technology |
 |---|---|
 | Runtime | Python, `uv` |
-| LLM + Embeddings | OpenRouter-compatible models |
+| LLM + Embeddings | OpenRouter-compatible models (runtime-configurable) |
 | Agent Memory & Retrieval | ChromaDB (persistent vector knowledge store) |
-| Orchestration | Supervisor/sub-agent control flow |
+| Orchestration | Supervisor + intent-routing control flow |
 | Interface | Gradio (Hugging Face Spaces) |
 | Persistence | SQLite + JSONL logs |
 
@@ -92,16 +100,6 @@ PY
 
 python -m src.gradio_app
 ```
-
-## Example Queries & Outputs
-
-- Combined screenshot (both queries in one run):
-  - `Who is Haben, and what is his core engineering focus based only on available evidence?`
-  - `What are Haben’s recent projects, and for each one list business objective, technical stack, and measurable impact from available evidence?`
-
-![Combined Identity and Projects Responses](assets/screenshots/Screenshot%20from%202026-03-21%2014-05-02.png)
-
-Tip: keep screenshots around 1000–1400px width for readability on GitHub.
 
 ## Repository Map
 
